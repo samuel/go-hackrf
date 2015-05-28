@@ -34,10 +34,12 @@ func (e ErrUnknown) Error() string {
 	return fmt.Sprintf("hackrf: unknown error %d", int(e))
 }
 
+// Init must be called once at the start of the program.
 func Init() error {
 	return toError(C.hackrf_init())
 }
 
+// Exit should be called once at the end of the program.
 func Exit() error {
 	return toError(C.hackrf_exit())
 }

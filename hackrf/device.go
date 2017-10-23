@@ -179,6 +179,7 @@ func (d *Device) SetTXVGAGain(value int) error {
 	return toError(C.hackrf_set_txvga_gain(d.cdev, C.uint32_t(value)))
 }
 
+// SetAntennaEnable enables ot disables antenna port power
 func (d *Device) SetAntennaEnable(enabled bool) error {
 	var value C.uint8_t
 	if enabled {

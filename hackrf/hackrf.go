@@ -1,8 +1,6 @@
-/*
-Package hackrf provides an interface to the HackRF SDR hardware.
-
-This package wraps libhackrf using cgo.
-*/
+// Package hackrf provides an interface to the HackRF SDR hardware.
+//
+// This package wraps libhackrf using cgo.
 package hackrf
 
 // #cgo darwin CFLAGS: -I/usr/local/include
@@ -13,6 +11,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"unsafe"
 )
 
 var (
@@ -71,4 +70,65 @@ func toError(r C.int) error {
 		return ErrOther
 	}
 	return ErrUnknown(int(r))
+}
+
+func LibraryVersion() string {
+	return C.GoString(C.hackrf_library_version())
+}
+
+func LibraryRelease() string {
+	return C.GoString(C.hackrf_library_release())
+}
+
+type USBBoardID uint16
+
+const (
+	USBBoardIDJawbreaker USBBoardID = 0x604B
+	USBBoardIDHackRFOne  USBBoardID = 0x6089
+	USBBoardIDRad1o      USBBoardID = 0xCC15
+	USBBoardIDInvalid    USBBoardID = 0xFFFF
+)
+
+func (u USBBoardID) String() string {
+	switch u {
+	case USBBoardIDJawbreaker:
+		return "Jawbreaker"
+	case USBBoardIDHackRFOne:
+		return "HackRF One"
+	case USBBoardIDRad1o:
+		return "rad1o"
+	case USBBoardIDInvalid:
+		return "Invalid Board ID"
+	}
+	return fmt.Sprintf("Unknown Board ID %04x", uint16(u))
+}
+
+type DeviceInfo struct {
+	SerialNumber   string
+	USBBoardID     USBBoardID
+	USBDeviceIndex int
+}
+
+func DeviceList() ([]*DeviceInfo, error) {
+	clist := C.hackrf_device_list()
+
+	if clist.devicecount < 1 {
+		return nil, nil
+	}
+	fmt.Printf("%d devices\n", clist.devicecount)
+
+	serials := (*[1 << 30](*C.char))(unsafe.Pointer(clist.serial_numbers))[:clist.devicecount:clist.devicecount]
+	usbBoardIDs := (*[1 << 30](C.int))(unsafe.Pointer(clist.usb_board_ids))[:clist.devicecount:clist.devicecount]
+	usbDeviceIndexes := (*[1 << 30](C.int))(unsafe.Pointer(clist.usb_device_index))[:clist.devicecount:clist.devicecount]
+
+	devices := make([]*DeviceInfo, clist.devicecount)
+	for i := 0; i < int(clist.devicecount); i++ {
+		devices[i] = &DeviceInfo{
+			SerialNumber:   C.GoString(serials[i]),
+			USBBoardID:     USBBoardID(usbBoardIDs[i]),
+			USBDeviceIndex: int(usbDeviceIndexes[i]),
+		}
+	}
+
+	return devices, nil
 }
